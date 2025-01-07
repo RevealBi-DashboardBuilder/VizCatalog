@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard Builder</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"  />
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <script src="https://unpkg.com/dayjs@1.8.21/dayjs.min.js"></script>
+    <script src="https://dl.revealbi.io/reveal/libs/1.7.1/infragistics.reveal.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@revealbi/dom/index.umd.min.js"></script>
+    <style>
+      body {
+        font-family: "Roboto", sans-serif;
+        height: 97vh;
+        margin: 0;
+      }
+
+      .container-fluid {
+        height: 100%;
+      }
+
+      .row {
+        height: 100%;
+      }
+
+      .list-container {
+        height: 450px;
+        overflow-y: auto;
+        border-bottom: 1px solid #ddd;
+      }
+
+      .single-viz-container {
+        height: 50%;
+        padding-top: 1rem;
+        border-top: 1px solid #ddd;
+      }
+
+      .generated-dashboard {
+        height: 97%;
+      }
+
+      .scrollable-list {
+        max-height: 400px;
+        overflow-y: auto;
+      }
+
+      .list-group-item {
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+      }
+
+      .list-group-item:hover {
+        background-color: #f0f0f0;
+      }
+
+      .selected {
+        background-color: #e0e0e0;
+      }
+
+      .reveal-dash-board {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container-fluid">
+      <div class="row">
+        <!-- Sidebar with list and single visualization -->
+        <div class="col-md-4 d-flex flex-column">
+          <div class="list-container">
+            <h5>Visualization List</h5>
+            <ul id="visualizationList" class="list-group scrollable-list"></ul>
+          </div>
+          <div class="single-viz-container">
+            <h5>Single Visualization</h5>
+            <div
+              id="revealSingleViz"
+              class="reveal-dash-board border rounded"
+            ></div>
+          </div>
+        </div>
+
+        <!-- Main content for the generated dashboard -->
+        <div class="col-md-8 generated-dashboard">
+          <h5 class="mt-2">Generated Dashboard</h5>
+          <div
+            id="revealDashboard"
+            class="reveal-dash-board border rounded"
+          ></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ** API to get the visualizations from your dashboards
+      // const API_BASE_URL = "https://acmeanalyticsserver.azurewebsites.net/dashboards/visualizations";      
+      const API_BASE_URL = "https://localhost:7218/dashboards/visualizations/";      
+
+      // ** note the /reveal-api suffix on the endpoint
+      // $.ig.RevealSdkSettings.setBaseUrl("https://acmeanalyticsserver.azurewebsites.net");
+      $.ig.RevealSdkSettings.setBaseUrl("https://localhost:7218");
+
+      // ** Test with server or local app
+      // const IMAGE_URL = 'https://acmeanalyticsserver.azurewebsites.net/images/png/';
+      const IMAGE_URL = "https://localhost:7218/images/svg/";
+      let imageExtension = ".svg"
+
+      let selectedItem = null;
+      let selectedVisualizations = [];
+      const sourceDocs = new Map();
+
+      async function fetchVisualizations() {
+          try {
+              const response = await fetch(API_BASE_URL);
+              const visualizations = await response.json();
+              populateVisualizationList(visualizations);
+          } catch (error) {
+              console.error("Error fetching visualizations:", error);
+          }
+      }
+
+      function populateVisualizationList(visualizations) {
+          const listElement = document.getElementById("visualizationList");
+          listElement.innerHTML = "";
+          visualizations.forEach((viz, index) => {
+              const encodedViz = encodeURIComponent(JSON.stringify(viz)); 
+              const listItem = document.createElement("li");
+              listItem.className = "list-group-item d-flex align-items-center";
+
+              listItem.innerHTML = `
+                  <img src="${IMAGE_URL}${viz.vizChartType}${imageExtension}" alt="${viz.vizTitle}" class="me-3" style="width: 40px; height: 40px;">
+                  <div>
+                      <div><strong>${viz.vizTitle}</strong></div>
+                      <div class="text-muted">${viz.dashboardTitle}</div>
+                  </div>
+                  <i class="material-icons ms-auto text-primary" style="cursor: pointer;" onclick="addVisualization(event, '${encodedViz}')">add</i>
+              `;
+              listItem.addEventListener("click", () =>
+                  handleVisualizationClick(viz, listItem)
+              );
+              listElement.appendChild(listItem);
+              if (index === 0) {
+                  listItem.click();
+              }
+          });
+      }
+
+      async function handleVisualizationClick(viz, listItem) {
+        if (selectedItem) {
+          selectedItem.classList.remove("selected");
+        }
+        listItem.classList.add("selected");
+        selectedItem = listItem;
+
+        try {
+          const dashboard = await $.ig.RVDashboard.loadDashboard(
+            viz.dashboardFileName
+          );
+          const revealView = new $.ig.RevealView(
+            document.getElementById("revealSingleViz")
+          );
+          revealView.dashboard = dashboard;
+          revealView.singleVisualizationMode = true;
+          revealView.maximizedVisualization = dashboard.visualizations.getById(
+            viz.vizId
+          );
+        } catch (error) {
+          console.error("Error loading visualization:", error);
+        }
+      }
+
+      function addVisualization(event, vizJson) {
+        event.stopPropagation();
+        try {
+            const viz = JSON.parse(decodeURIComponent(vizJson));
+            if (!viz || !viz.dashboardFileName) {
+                console.error("Invalid Visualization: Missing dashboardFileName", viz);
+                return;
+            }
+
+            // Check if the visualization already exists in the array
+            const exists = selectedVisualizations.some(
+                (v) => v.vizId === viz.vizId && v.dashboardFileName === viz.dashboardFileName
+            );
+
+            if (exists) {
+                // Display error message
+                alert("Visualization already in dashboard");
+                return;
+            }
+
+            selectedVisualizations.push(viz);
+            generateDashboard();
+        } catch (error) {
+            console.error("Error parsing visualization JSON:", vizJson, error);
+        }
+    }
+
+
+      async function generateDashboard() {
+          try {
+              const dashboardDocument = new dom.RdashDocument("Generated Dashboard");
+              for (const viz of selectedVisualizations) {
+                  console.log("Processing visualization:", viz);
+                  let sourceDoc = sourceDocs.get(viz.dashboardFileName);
+                  
+                  if (!sourceDoc) {
+                      sourceDoc = await dom.RdashDocument.load(viz.dashboardFileName);
+                      if (!sourceDoc) {
+                          throw new Error(`Failed to load source document: ${viz.dashboardFileName}`);
+                      }
+                      sourceDocs.set(viz.dashboardFileName, sourceDoc);
+                  }
+                dashboardDocument.import(sourceDoc, viz.vizId);
+              }
+              const rvDashboard = await dashboardDocument.toRVDashboard();
+              if (!rvDashboard) {
+                  throw new Error("Generated dashboard is null or undefined");
+              }
+              const revealView = new $.ig.RevealView(
+                  document.getElementById("revealDashboard")
+              );
+              revealView.dashboard = rvDashboard;
+              revealView.startInEditMode = true;
+          } catch (error) {
+              console.error("Error generating dashboard:", error);
+          }
+      }
+      fetchVisualizations();
+    </script>
+  </body>
+</html>
