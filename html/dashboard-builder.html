@@ -97,17 +97,17 @@
 
     <script>
       // ** API to get the visualizations from your dashboards
-      // const API_BASE_URL = "https://acmeanalyticsserver.azurewebsites.net/dashboards/visualizations";      
-      const API_BASE_URL = "https://localhost:7218/dashboards/visualizations/";      
+      const API_BASE_URL = "https://acmeanalyticsserver.azurewebsites.net/dashboards/visualizations";      
+      // const API_BASE_URL = "https://localhost:7218/dashboards/visualizations/";      
 
       // ** note the /reveal-api suffix on the endpoint
-      // $.ig.RevealSdkSettings.setBaseUrl("https://acmeanalyticsserver.azurewebsites.net");
-      $.ig.RevealSdkSettings.setBaseUrl("https://localhost:7218");
+      $.ig.RevealSdkSettings.setBaseUrl("https://acmeanalyticsserver.azurewebsites.net");
+      // $.ig.RevealSdkSettings.setBaseUrl("https://localhost:7218");
 
       // ** Test with server or local app
-      // const IMAGE_URL = 'https://acmeanalyticsserver.azurewebsites.net/images/png/';
-      const IMAGE_URL = "https://localhost:7218/images/svg/";
-      let imageExtension = ".svg"
+      const IMAGE_URL = 'https://acmeanalyticsserver.azurewebsites.net/images/png/';
+      // const IMAGE_URL = "https://localhost:7218/images/svg/";
+      let imageExtension = ".png"
 
       let selectedItem = null;
       let selectedVisualizations = [];
